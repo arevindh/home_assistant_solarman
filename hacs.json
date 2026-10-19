@@ -1,5 +1,4 @@
 {
-    "name": "Solarman Integration",
-    "content_in_root": false,
-    "render_readme": false
-  }
+  "name": "Solarman Integration",
+  "homeassistant": "2024.1.0"
+}

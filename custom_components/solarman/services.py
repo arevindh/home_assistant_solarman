@@ -1,3 +1,4 @@
+from functools import partial
 from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.helpers import config_validation as cv, entity_registry, entity
 from homeassistant.helpers.entity_component import EntityComponent
@@ -58,7 +59,7 @@ SERVICE_WRITE_MULTIPLE_REGISTERS_SCHEMA = vol.Schema(
 def register_services (hass: HomeAssistant ):
 
     def getInverter(device_id):
-        inverter: Inverter | None
+        inverter: Inverter | None = None
         entity_comp: EntityComponent[entity.Entity] | None       
         registry = entity_registry.async_get(hass)
         entries = entity_registry.async_entries_for_device(registry, device_id)
@@ -92,7 +93,7 @@ def register_services (hass: HomeAssistant ):
             )
         
         try:
-            response = inverter.service_read_holding_register( register=call.data.get(PARAM_REGISTER) )
+            response = await hass.async_add_executor_job(partial(inverter.service_read_holding_register, register=call.data.get(PARAM_REGISTER) ))
         except Exception as e:
             raise ServiceValidationError(
                 e,
@@ -112,9 +113,9 @@ def register_services (hass: HomeAssistant ):
             )
         
         try:
-            response = inverter.service_read_multiple_holding_registers( 
+            response = await hass.async_add_executor_job(partial(inverter.service_read_multiple_holding_registers, 
                 register=call.data.get(PARAM_REGISTER),
-                 count=call.data.get(PARAM_COUNT) )
+                 count=call.data.get(PARAM_COUNT) ))
         except Exception as e:
             raise ServiceValidationError(
                 e,
@@ -138,9 +139,9 @@ def register_services (hass: HomeAssistant ):
             )
 
         try:
-            inverter.service_write_holding_register(
+            await hass.async_add_executor_job(partial(inverter.service_write_holding_register,
                 register=call.data.get(PARAM_REGISTER), 
-                value=call.data.get(PARAM_VALUE))
+                value=call.data.get(PARAM_VALUE)))
         except Exception as e:
             raise ServiceValidationError(
                 e,
@@ -160,9 +161,9 @@ def register_services (hass: HomeAssistant ):
             )
 
         try:
-            inverter.service_write_multiple_holding_registers(
+            await hass.async_add_executor_job(partial(inverter.service_write_multiple_holding_registers,
                 register=call.data.get(PARAM_REGISTER),
-                values=call.data.get(PARAM_VALUES))
+                values=call.data.get(PARAM_VALUES)))
         except Exception as e:
             raise ServiceValidationError(
                 e,
