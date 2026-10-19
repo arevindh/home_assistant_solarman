@@ -8,6 +8,7 @@
 ###############################################################################
 
 import logging
+import os
 import re
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
@@ -25,25 +26,25 @@ _LOGGER = logging.getLogger(__name__)
 _inverter_scanner = InverterScanner()
 
 
-def _do_setup_platform(hass: HomeAssistant, config, async_add_entities : AddEntitiesCallback):
+async def _do_setup_platform(hass: HomeAssistant, config, async_add_entities : AddEntitiesCallback):
     _LOGGER.debug(f'sensor.py:async_setup_platform: {config}') 
     
     inverter_name = config.get(CONF_NAME)
     inverter_host = config.get(CONF_INVERTER_HOST)
     if inverter_host == "0.0.0.0":
-        inverter_host = _inverter_scanner.get_ipaddress()
+        inverter_host = await hass.async_add_executor_job(_inverter_scanner.get_ipaddress)
         
    
     inverter_port = config.get(CONF_INVERTER_PORT)
     inverter_sn = config.get(CONF_INVERTER_SERIAL)
     if inverter_sn == 0:
-        inverter_sn = _inverter_scanner.get_serialno()
+        inverter_sn = await hass.async_add_executor_job(_inverter_scanner.get_serialno)
 
     inverter_mb_slaveid = config.get(CONF_INVERTER_MB_SLAVEID)
     if not inverter_mb_slaveid:
         inverter_mb_slaveid = DEFAULT_INVERTER_MB_SLAVEID
     lookup_file = config.get(CONF_LOOKUP_FILE)
-    path = hass.config.path('custom_components/solarman/inverter_definitions/')
+    path = os.path.dirname(__file__) + '/inverter_definitions/'
 
     # Check input configuration.
     if inverter_host is None:
@@ -51,7 +52,7 @@ def _do_setup_platform(hass: HomeAssistant, config, async_add_entities : AddEnti
     if inverter_sn is None:
         raise vol.Invalid('configuration parameter [inverter_serial] does not have a value')
 
-    inverter = Inverter(path, inverter_sn, inverter_host, inverter_port, inverter_mb_slaveid, lookup_file)
+    inverter = await hass.async_add_executor_job(Inverter, path, inverter_sn, inverter_host, inverter_port, inverter_mb_slaveid, lookup_file)
     #  Prepare the sensor entities.
     hass_sensors = []
     for sensor in inverter.get_sensors():
@@ -81,12 +82,12 @@ def _do_setup_platform(hass: HomeAssistant, config, async_add_entities : AddEnti
 # Set-up from configuration.yaml
 async def async_setup_platform(hass: HomeAssistant, config, async_add_entities : AddEntitiesCallback, discovery_info=None):
     _LOGGER.debug(f'sensor.py:async_setup_platform: {config}') 
-    _do_setup_platform(hass, config, async_add_entities)
+    await _do_setup_platform(hass, config, async_add_entities)
        
 # Set-up from the entries in config-flow
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     _LOGGER.debug(f'sensor.py:async_setup_entry: {entry.options}') 
-    _do_setup_platform(hass, entry.options, async_add_entities)
+    await _do_setup_platform(hass, entry.options, async_add_entities)
 
 
 #############################################################################################################
@@ -200,7 +201,7 @@ class SolarmanSensorText(SolarmanStatus):
                 self.p_state = val[self._field_name]
             else:
                 uom = getattr(self, 'uom', None)
-                if uom and (re.match("\S+", uom)):
+                if uom and (re.match(r"\S+", uom)):
                     self.p_state = None
                 _LOGGER.debug(f'No value recorded for {self._field_name}')
 
